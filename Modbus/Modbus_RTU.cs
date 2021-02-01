@@ -75,6 +75,26 @@ namespace Modbus
             return this.GetCRCDatas(message);
         }
         /// <summary>
+        /// 实现对下位机进行模拟量读取--H04
+        /// </summary>
+        /// <param name="function"></param>
+        /// <param name="Station"></param>
+        /// <param name="start"></param>
+        /// <param name="number"></param>
+        /// <returns></returns>
+        byte[] Modbus_name.GenerateH04(function function, ushort Station, ushort start, ushort number)
+        {
+            byte[] message = new byte[6];
+            message[0] = Convert.ToByte(Station);
+            message[1] = Convert.ToByte(function);
+            for (int i = 0; i < 2; i++)
+            {
+                message[2 + i] = (int_to_byte(start)[i]);
+                message[4 + i] = (int_to_byte(number)[i]);
+            }
+            return this.GetCRCDatas(message);
+        }
+        /// <summary>
         /// 实现对下位机进行线圈写入--H05
         /// </summary>
         /// <param name="function">功能码枚举</param>

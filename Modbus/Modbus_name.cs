@@ -50,6 +50,15 @@ namespace Modbus
         /// <param name="number">读取个数（字）</param>
         /// <returns></returns>
         byte[] GenerateH03(function function, ushort Station, ushort start, ushort number);
+        /// <summary>
+        /// 对下位机进行模拟量读取--H04
+        /// </summary>
+        /// <param name="function"></param>
+        /// <param name="Station"></param>
+        /// <param name="start"></param>
+        /// <param name="number"></param>
+        /// <returns></returns>
+        byte[] GenerateH04(function function, ushort Station, ushort start, ushort number);
         //byte[] GenerateH04(function function, ushort Station, ushort start, ushort number);
         /// <summary>
         /// 对下位机进行线圈写入--H05

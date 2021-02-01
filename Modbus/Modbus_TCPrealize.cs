@@ -15,6 +15,11 @@ namespace Modbus
          Byet, Hex_16_Bit, Hex_32_Bit, Binary_16_Bit, Binary_32_Bit, Unsigned_16_Bit, Signed_16_Bit
            , Unsigned_32_Bit, Signed_32_Bit, Signed_64_Bit, Float_32_Bit
     }
+    public enum high_low
+    {
+        high=1,
+        low=0
+    }
     /// <summary>
     /// 本类用于实现modbus_TCP 并且返回操作结果
     /// </summary>
@@ -91,9 +96,10 @@ namespace Modbus
         /// <summary>
         /// 使用H03功能码发送报文并且等待设备回复--字节--堵塞模式
         /// </summary>
-        /// <param name="address">起始地址</param>
+        /// <param name="address">起始地址字</param>
+        /// <param name="high_Low">高低位</param>
         /// <returns></returns>
-        public OperateResult<byte> Read_Byet(byte address)
+        public OperateResult<byte> Read_Byet(byte address, high_low high_Low)
         {
             try
             {
@@ -101,7 +107,7 @@ namespace Modbus
                 if (this.Socket_ready)
                 {
                     this.socket.Send(this.Modbus_TCP.GenerateH03(function.H03, 1, address, 1));//发送报文
-                    return (OperateResult<byte>) Read_return(numerical_format.Byet);
+                    return (OperateResult<byte>) Read_return(numerical_format.Byet,high_Low);
                 }
                 else
                     throw new AggregateException("未连接设备");
@@ -228,7 +234,7 @@ namespace Modbus
                 switch (numerical)
                 {
                     case numerical_format.Byet:
-                        message= new OperateResult<byte>() { Content = data[8 + data[8]], ErrorCode = "0", IsSuccess = true };
+                        message= new OperateResult<byte>() { Content = data[10], ErrorCode = "0", IsSuccess = true };
                         break;
                     case numerical_format.Signed_16_Bit:
                         message= new OperateResult<short>() { Content =BitConverter.ToInt16(new byte[] { data[10],data[9]},0), ErrorCode = "0", IsSuccess = true };
@@ -253,17 +259,63 @@ namespace Modbus
             return message;//返回内容
         }
         /// <summary>
+        /// 用于返回指定类型
+        /// </summary>
+        /// <param name="numerical">起始地址</param>
+        /// <returns></returns>
+        private object Read_return(numerical_format numerical, high_low high_Low)
+        {
+            object message = new OperateResult<short>() { Content = 0, ErrorCode = "0", IsSuccess = true };
+            Thread.Sleep(10);
+            try
+            {
+                byte[] data = new byte[100];//定义数据接收数组  
+                this.socket.Receive(data);//接收数据到data数组  
+                byte[] datashow = new byte[data[8]];//定义所要显示的接收的数据的长度  
+                for (int i = 0; i < datashow.Length; i++)//遍历获取数据
+                    datashow[i] = data[data[5] + 3];
+
+                switch (numerical)
+                {
+                    case numerical_format.Byet:
+                        message = new OperateResult<byte>() { Content = (data[10- (byte)high_Low]), ErrorCode = "0", IsSuccess = true };
+                        break;
+                    case numerical_format.Signed_16_Bit:
+                        message = new OperateResult<short>() { Content = BitConverter.ToInt16(new byte[] { data[10], data[9] }, 0), ErrorCode = "0", IsSuccess = true };
+                        break;
+                    case numerical_format.Unsigned_16_Bit:
+                        message = new OperateResult<ushort>() { Content = BitConverter.ToUInt16(new byte[] { data[10], data[9] }, 0), ErrorCode = "0", IsSuccess = true };
+                        break;
+                    case numerical_format.Signed_32_Bit:
+                        message = new OperateResult<int>() { Content = BitConverter.ToInt32(new byte[] { data[10], data[9], data[12], data[11] }, 0), ErrorCode = "0", IsSuccess = true };
+                        break;
+                    case numerical_format.Unsigned_32_Bit:
+                        message = new OperateResult<uint>() { Content = BitConverter.ToUInt32(new byte[] { data[10], data[9], data[12], data[11] }, 0), ErrorCode = "0", IsSuccess = true };
+                        break;
+                }
+            }
+            catch (Exception e)
+            {
+                mutex.ReleaseMutex();
+                return Err<int>(e);
+            }
+            mutex.ReleaseMutex();
+            return message;//返回内容
+        }
+        /// <summary>
         /// 使用H16功能码进行数据写入--字节--堵塞模式
         /// </summary>
-        /// <param name="address">起始地址</param>
+        /// <param name="address">起始字地址</param>
+        /// <param name="Data">数据</param>
+        /// <param name="high_Low">写入高低字节</param>
         /// <returns></returns>
-        public OperateResult<byte> Write_Byte(byte address,byte Data)
+        public OperateResult<byte> Write_Byte(byte address,byte Data,high_low high_Low)
         {
             try
             {
                 if (this.Socket_ready)
                 {
-                    return (OperateResult<byte>)Write_return(numerical_format.Byet,Data,address);
+                    return (OperateResult<byte>)Write_return(numerical_format.Byet,Data,address, high_Low);
                 }
                 else
                     throw new AggregateException("未连接设备");
@@ -358,20 +410,78 @@ namespace Modbus
                 switch (numerical)
                 {
                     case numerical_format.Byet:
-                        this.socket.Send(this.Modbus_TCP.GenerateH16(function.H16, 1, address,1, new byte[] { Write_Data[0] }));
+                        this.socket.Send(this.Modbus_TCP.GenerateH06(function.H06, 1, address, (ushort)Write_Data[0]));
                         message = new OperateResult<byte>() { Content = Write_Data[0], ErrorCode = "0", IsSuccess = true };
                         break;
                     case numerical_format.Signed_16_Bit:
-                        this.socket.Send(this.Modbus_TCP.GenerateH16(function.H16, 1, address, 2, new byte[] { Write_Data[0],Write_Data[1] }));
+                        this.socket.Send(this.Modbus_TCP.GenerateH06(function.H06, 1, address, BitConverter.ToUInt16(new byte[] { Write_Data[0], Write_Data[1] },0) ));
                         message = new OperateResult<short>() { Content = BitConverter.ToInt16(new byte[] { Write_Data[0], Write_Data[1] },0), ErrorCode = "0", IsSuccess = true };
                         break;
                     case numerical_format.Signed_32_Bit:
-                        this.socket.Send(this.Modbus_TCP.GenerateH16(function.H16, 1, address, 4, new byte[] { Write_Data[0], Write_Data[1],Write_Data[2],Write_Data[3] }));
+                        this.socket.Send(this.Modbus_TCP.GenerateH06(function.H06, 1, address, BitConverter.ToUInt16(new byte[] { Write_Data[0], Write_Data[1] }, 0)));
+                        this.socket.Send(this.Modbus_TCP.GenerateH06(function.H06, 1, (ushort)(address+1), BitConverter.ToUInt16(new byte[] { Write_Data[2], Write_Data[3] }, 0)));
                         message = new OperateResult<int>() { Content = BitConverter.ToInt32(new byte[] { Write_Data[0], Write_Data[1],Write_Data[2],Write_Data[3] }, 0), ErrorCode = "0", IsSuccess = true };
                         break;
                     case numerical_format.Signed_64_Bit:
-                        this.socket.Send(this.Modbus_TCP.GenerateH16(function.H16, 1, address, 6, new byte[] { Write_Data[0], Write_Data[1], Write_Data[2], Write_Data[3],Write_Data[4],Write_Data[5] }));
+                        this.socket.Send(this.Modbus_TCP.GenerateH06(function.H06, 1, address, BitConverter.ToUInt16(new byte[] { Write_Data[0], Write_Data[1] }, 0)));
+                        this.socket.Send(this.Modbus_TCP.GenerateH06(function.H06, 1, (ushort)(address + 1), BitConverter.ToUInt16(new byte[] { Write_Data[2], Write_Data[3] }, 0)));
+                        this.socket.Send(this.Modbus_TCP.GenerateH06(function.H06, 1, (ushort)(address + 2), BitConverter.ToUInt16(new byte[] { Write_Data[4], Write_Data[5] }, 0)));
+                        this.socket.Send(this.Modbus_TCP.GenerateH06(function.H06, 1, (ushort)(address + 3), BitConverter.ToUInt16(new byte[] { Write_Data[6], Write_Data[7] }, 0)));
                         message = new OperateResult<long>() { Content = BitConverter.ToInt64(new byte[] { Write_Data[0], Write_Data[1], Write_Data[2], Write_Data[3],Write_Data[4],Write_Data[5] }, 0), ErrorCode = "0", IsSuccess = true };
+                        break;
+                }
+                //统一等待报文回复
+                byte[] data = new byte[100];//定义数据接收数组  
+                this.socket.Receive(data);//接收数据到data数组
+            }
+            catch (Exception e)
+            {
+                mutex.ReleaseMutex();
+                return Err<T>(e);
+            }
+            mutex.ReleaseMutex();
+            return message;//返回内容
+        }
+        /// <summary>
+        /// 用于写入的操作结果
+        /// </summary>
+        /// <typeparam name="T">要写入的类型--约束泛型T</typeparam>
+        /// <param name="numerical">要写入的格式</param>
+        /// <param name="Data">要写入的数据--类型是约束T的类型</param>
+        /// <param name="address">起始地址</param>
+        /// <returns></returns>
+        private object Write_return<T>(numerical_format numerical, T Data, byte address,high_low high_Low)
+        {
+            mutex.WaitOne(3000);
+            Thread.Sleep(10);
+            object message = new OperateResult<short>() { Content = 0, ErrorCode = "0", IsSuccess = true };
+            try
+            {
+                byte[] Write_Data = new byte[10];//创建默认要写入的数据
+                byte[] transition = BitConverter.GetBytes(Convert.ToInt64(Data));
+                for (int i = 0; i < transition.Length; i++)//获得要写入的数据
+                    Write_Data[i] = transition[i];
+                switch (numerical)
+                {
+                    case numerical_format.Byet:
+                        this.socket.Send(this.Modbus_TCP.GenerateH06(function.H06, 1, address, high_Low==high_low.low?BitConverter.ToUInt16(new byte[] { Write_Data[0],Write_Data[1]},0): BitConverter.ToUInt16(new byte[] { Write_Data[1], Write_Data[0] }, 0)));
+                        message = new OperateResult<byte>() { Content = Write_Data[0], ErrorCode = "0", IsSuccess = true };
+                        break;
+                    case numerical_format.Signed_16_Bit:
+                        this.socket.Send(this.Modbus_TCP.GenerateH06(function.H06, 1, address, BitConverter.ToUInt16(new byte[] { Write_Data[0], Write_Data[1] }, 0)));
+                        message = new OperateResult<short>() { Content = BitConverter.ToInt16(new byte[] { Write_Data[0], Write_Data[1] }, 0), ErrorCode = "0", IsSuccess = true };
+                        break;
+                    case numerical_format.Signed_32_Bit:
+                        this.socket.Send(this.Modbus_TCP.GenerateH06(function.H06, 1, address, BitConverter.ToUInt16(new byte[] { Write_Data[0], Write_Data[1] }, 0)));
+                        this.socket.Send(this.Modbus_TCP.GenerateH06(function.H06, 1, (ushort)(address + 1), BitConverter.ToUInt16(new byte[] { Write_Data[2], Write_Data[3] }, 0)));
+                        message = new OperateResult<int>() { Content = BitConverter.ToInt32(new byte[] { Write_Data[0], Write_Data[1], Write_Data[2], Write_Data[3] }, 0), ErrorCode = "0", IsSuccess = true };
+                        break;
+                    case numerical_format.Signed_64_Bit:
+                        this.socket.Send(this.Modbus_TCP.GenerateH06(function.H06, 1, address, BitConverter.ToUInt16(new byte[] { Write_Data[0], Write_Data[1] }, 0)));
+                        this.socket.Send(this.Modbus_TCP.GenerateH06(function.H06, 1, (ushort)(address + 1), BitConverter.ToUInt16(new byte[] { Write_Data[2], Write_Data[3] }, 0)));
+                        this.socket.Send(this.Modbus_TCP.GenerateH06(function.H06, 1, (ushort)(address + 2), BitConverter.ToUInt16(new byte[] { Write_Data[4], Write_Data[5] }, 0)));
+                        this.socket.Send(this.Modbus_TCP.GenerateH06(function.H06, 1, (ushort)(address + 3), BitConverter.ToUInt16(new byte[] { Write_Data[6], Write_Data[7] }, 0)));
+                        message = new OperateResult<long>() { Content = BitConverter.ToInt64(new byte[] { Write_Data[0], Write_Data[1], Write_Data[2], Write_Data[3], Write_Data[4], Write_Data[5] }, 0), ErrorCode = "0", IsSuccess = true };
                         break;
                 }
                 //统一等待报文回复
@@ -403,7 +513,7 @@ namespace Modbus
                     byte[] Data = new byte[50];
                     this.socket.Receive(Data);//接收回复
                     mutex.ReleaseMutex();
-                    return new OperateResult<bool>() { Content = Data[9]>1?true:false, ErrorCode = "0", IsSuccess = true };
+                    return new OperateResult<bool>() { Content = Data[9]>0?true:false, ErrorCode = "0", IsSuccess = true };
                 }
                 else
                     throw new AggregateException("未连接设备");

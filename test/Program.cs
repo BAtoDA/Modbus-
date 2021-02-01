@@ -18,28 +18,30 @@ namespace test
         static void Main(string[] args)
         {
             //测试
-            Modbus_TCPrealize modbus_TC = new Modbus_TCPrealize(new IPEndPoint(IPAddress.Parse("192.168.3.2"), int.Parse("502")));
+            Modbus_TCPrealize modbus_TC = new Modbus_TCPrealize(new IPEndPoint(IPAddress.Parse("192.168.0.182"), int.Parse("502")));
             OperateResult<int> operateResult= modbus_TC.Open();
             Console.WriteLine(operateResult.IsSuccess);
             //发送第一个报文测试
-            for (int i = 0; i < 90; i++)
+            for (int i = 0; i < 9099; i++)
             {
-                Console.WriteLine(modbus_TC.write_multi_Bool(20, 3, 0).Content);
-                Console.WriteLine((modbus_TC.Read_Byet(0).Content.ToString()));//读取设备第一个寄存器
-                Thread.Sleep(10);
-                Console.WriteLine((modbus_TC.Read_short(0).Content.ToString()));//读取设备第一个寄存器
-                Thread.Sleep(10);
-                Console.WriteLine((modbus_TC.Read_int(0).Content.ToString()));//读取设备第一个寄存器
-                Thread.Sleep(10);
-                //Console.WriteLine((modbus_TC.Write_Byte(0,20).Content.ToString()));//写入设备第一个寄存器
-                //Thread.Sleep(100);
-                Console.WriteLine((modbus_TC.Write_short(0, 5252).Content.ToString()));//写入设备第一个寄存器
+                //Console.WriteLine(modbus_TC.write_multi_Bool(0, 16, 0XFF).Content);
+
+                Console.WriteLine((modbus_TC.Read_Byet(1,high_low.high).Content.ToString()));//读取设备第一个寄存器
                 //Thread.Sleep(10);
-                Console.WriteLine((modbus_TC.Read_Bool(0).Content.ToString()));//读取设备的线圈
-                Thread.Sleep(10);
-                var dx=modbus_TC.Read_multi_Bool(0,17);//读取设备的多个线圈
-                Console.WriteLine(modbus_TC.write_multi_Bool(20, 3, 15).Content);
-                Thread.Sleep(10);
+                Console.WriteLine((modbus_TC.Read_short(0).Content.ToString()));//读取设备第一个寄存器
+                //Thread.Sleep(10);
+                Console.WriteLine((modbus_TC.Read_int(0).Content.ToString()));//读取设备第一个寄存器
+                //Thread.Sleep(10);
+                Console.WriteLine((modbus_TC.Write_Byte(0,1,high_low.high).Content.ToString()));//写入设备第一个寄存器
+                ////Thread.Sleep(100);
+                //Console.WriteLine((modbus_TC.Write_short(0, 0).Content.ToString()));//写入设备第一个寄存器
+                ////Thread.Sleep(10);
+                Console.WriteLine((modbus_TC.write_Bool(1,i%2==1?coil.OFF:coil.ON).Content.ToString()));//读取设备的线圈
+                //Thread.Sleep(10);
+                //var dx=modbus_TC.Read_multi_Bool(0,17);//读取设备的多个线圈
+                Console.WriteLine((modbus_TC.Read_Bool(2).Content.ToString()));//写入设备第一个寄存器
+                //Console.WriteLine(modbus_TC.write_multi_Bool(20, 3, 15).Content);
+                //Thread.Sleep(10);
                 
             }
 
